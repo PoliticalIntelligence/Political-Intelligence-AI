@@ -1,93 +1,110 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Political Intelligence Dashboard</title>
-  <link rel="stylesheet" href="/static/style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Political & Governance Analysis Dashboard</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-<header class="topbar">
-  <div>
-    <div class="eyebrow">POLITICAL INTELLIGENCE AI</div>
-    <h1>Political Intelligence Dashboard</h1>
-    <p>Analyse MLA activity using the actual post date and AI classification.</p>
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="eyebrow">SOCIAL MEDIA INTELLIGENCE</div>
+      <h1>AI Political &amp; Governance Analysis Dashboard</h1>
+      <p>Analyse MLA activity using actual post dates and AI classification.</p>
+    </div>
+    <div class="status-pill" id="dataStatus">Loading data…</div>
   </div>
-  <button id="refreshBtn" class="button secondary">Refresh data</button>
 </header>
 
 <main class="container">
-  <section class="control panel">
-    <div class="control-title">
-      <div><span class="label">ANALYSIS PERIOD</span><strong id="periodLabel">Last 7 Days</strong></div>
-      <span id="dataStatus" class="muted">Loading…</span>
+<section class="card period-card">
+  <div class="section-top">
+    <div>
+      <div class="eyebrow dark">ANALYSIS PERIOD</div>
+      <div class="period-title" id="periodTitle">—</div>
     </div>
-    <div class="quick-row">
-      <button class="quick active" data-preset="last7">Last 7 Days</button>
-      <button class="quick" data-preset="last30">Last 30 Days</button>
-      <button class="quick" data-preset="today">Today</button>
-      <button class="quick" data-preset="thisweek">This Week</button>
-      <button class="quick" data-preset="thismonth">This Month</button>
+    <div class="count-note" id="validCount">Showing 0 valid posts</div>
+  </div>
+  <div class="preset-row">
+    <button class="preset active" data-preset="7d">Last 7 Days</button>
+    <button class="preset" data-preset="30d">Last 30 Days</button>
+    <button class="preset" data-preset="today">Today</button>
+    <button class="preset" data-preset="week">This Week</button>
+    <button class="preset" data-preset="month">This Month</button>
+  </div>
+  <div class="date-grid">
+    <label><span>Specific date</span><input type="date" id="specificDate"></label>
+    <label><span>From</span><input type="date" id="fromDate"></label>
+    <label><span>To</span><input type="date" id="toDate"></label>
+    <div class="date-actions">
+      <button class="primary" id="applyCustom">Apply custom range</button>
+      <button class="secondary" id="resetDates">Reset dates</button>
     </div>
-    <div class="date-grid">
-      <label>Specific date<input type="date" id="exactDate"></label>
-      <label>From<input type="date" id="fromDate"></label>
-      <label>To<input type="date" id="toDate"></label>
-      <button id="customBtn" class="button primary">Apply custom range</button>
-      <button id="resetDates" class="button secondary">Reset dates</button>
-    </div>
-  </section>
+  </div>
+</section>
 
-  <section class="panel">
-    <div class="panel-title"><h2>Filters</h2><button id="resetFilters" class="link-button">Reset all</button></div>
-    <div class="filter-grid">
-      <label>Author / MLA<select id="author"></select></label>
-      <label>District<select id="district"></select></label>
-      <label>Assembly<select id="assembly"></select></label>
-      <label>Main Category<select id="category"></select></label>
-      <label>Sub Category<select id="subcategory"></select></label>
-      <label>Event Type<select id="event"></select></label>
-      <label>Party<select id="party"></select></label>
-      <label>Leader<select id="leader"></select></label>
-      <label>Development Sector<select id="sector"></select></label>
-      <label>Government Scheme<select id="scheme"></select></label>
-    </div>
-  </section>
+<section class="card">
+  <div class="section-top">
+    <h2>Filters</h2>
+    <button class="text-button" id="resetFilters">Reset all</button>
+  </div>
+  <div class="filter-grid">
+    <label><span>Author / MLA</span><select id="f-author"></select></label>
+    <label><span>District</span><select id="f-district"></select></label>
+    <label><span>Assembly</span><select id="f-assembly"></select></label>
+    <label><span>Main Category</span><select id="f-main-category"></select></label>
+    <label><span>Sub Category</span><select id="f-sub-category"></select></label>
+    <label><span>Event Type</span><select id="f-event-type"></select></label>
+    <label><span>Party</span><select id="f-party"></select></label>
+    <label><span>Leader</span><select id="f-leader"></select></label>
+    <label><span>Development Sector</span><select id="f-sector"></select></label>
+    <label><span>Government Scheme</span><select id="f-scheme"></select></label>
+  </div>
+</section>
 
-  <section class="cards">
-    <article><span>Total Posts</span><strong id="total">0</strong></article>
-    <article><span>Political Posts</span><strong id="political">0</strong></article>
-    <article><span>Development</span><strong id="development">0</strong></article>
-    <article><span>Law &amp; Order</span><strong id="lawOrder">0</strong></article>
-    <article><span>Welfare</span><strong id="welfare">0</strong></article>
-    <article><span>Opposition Mentions</span><strong id="opposition">0</strong></article>
-  </section>
+<section class="kpi-grid">
+  <div class="kpi"><div>Total Posts</div><strong id="kpi-total">0</strong></div>
+  <div class="kpi"><div>Political Posts</div><strong id="kpi-political">0</strong></div>
+  <div class="kpi"><div>Development</div><strong id="kpi-development">0</strong></div>
+  <div class="kpi"><div>Law &amp; Order</div><strong id="kpi-law">0</strong></div>
+  <div class="kpi"><div>Welfare</div><strong id="kpi-welfare">0</strong></div>
+  <div class="kpi"><div>Opposition Mentions</div><strong id="kpi-opposition">0</strong></div>
+</section>
 
-  <section class="grid charts">
-    <article class="panel chart-panel wide"><h2>Activity by Post Date</h2><canvas id="dailyChart"></canvas></article>
-    <article class="panel chart-panel"><h2>Main Category</h2><canvas id="categoryChart"></canvas></article>
-    <article class="panel chart-panel"><h2>Development Sector</h2><canvas id="sectorChart"></canvas></article>
-    <article class="panel chart-panel"><h2>Party Mentions</h2><canvas id="partyChart"></canvas></article>
-    <article class="panel chart-panel"><h2>Event Types</h2><canvas id="eventChart"></canvas></article>
-    <article class="panel chart-panel"><h2>Most Active Authors</h2><canvas id="leaderChart"></canvas></article>
-  </section>
+<section class="chart-grid">
+  <div class="card chart-card"><div class="chart-title">Posts by Main Category</div><canvas id="categoryChart"></canvas></div>
+  <div class="card chart-card"><div class="chart-title">Posts by Development Sector</div><canvas id="sectorChart"></canvas></div>
+  <div class="card chart-card"><div class="chart-title">Party Mentions</div><canvas id="partyChart"></canvas></div>
+  <div class="card chart-card"><div class="chart-title">Top Leaders Mentioned</div><canvas id="leaderChart"></canvas></div>
+</section>
 
-  <section class="panel">
-    <div class="panel-title">
-      <div><h2>Post Analysis</h2><span id="postCount" class="muted">0 posts</span></div>
-      <span class="muted">Post Date is the date used for period analysis.</span>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>Post Date</th><th>Author / MLA</th><th>Category</th><th>Event</th><th>Party</th><th>Leader</th><th>Development</th><th>AI Summary</th><th>Post</th></tr>
-        </thead>
-        <tbody id="postsBody"></tbody>
-      </table>
-    </div>
-  </section>
+<section class="card table-card">
+  <div class="section-top">
+    <div><h2>Filtered Posts</h2><div class="muted" id="tableNote">—</div></div>
+    <button class="secondary" id="downloadCsv">Download CSV</button>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Post Date</th><th>Author</th><th>Main Category</th><th>Sub Category</th>
+        <th>Event Type</th><th>Party</th><th>Development Sector</th><th>Place of Visit</th>
+        <th>Summary</th><th>Post</th>
+      </tr></thead>
+      <tbody id="postTableBody"></tbody>
+    </table>
+  </div>
+  <div class="pagination">
+    <button class="secondary" id="prevPage">Previous</button>
+    <span id="pageInfo">Page 1</span>
+    <button class="secondary" id="nextPage">Next</button>
+  </div>
+</section>
+
+<footer class="footer"><span id="updatedAt">Data updated: —</span><span>Public dashboard</span></footer>
 </main>
-<script src="/static/app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
