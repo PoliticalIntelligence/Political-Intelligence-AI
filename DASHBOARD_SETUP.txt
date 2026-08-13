@@ -1,0 +1,24 @@
+DASHBOARD V1 - FIXED
+
+This version fixes the startup error:
+ModuleNotFoundError: No module named core.google_auth
+
+It uses the same service-account setup as the working project:
+credentials/service_account.json
+
+Google Sheet:
+Political Intelligence Database
+Worksheet:
+AI Analysis
+
+Run from the project root:
+1. pip install -r requirements-web.txt
+2. python run_dashboard.py
+3. Open http://127.0.0.1:8000
+
+Optional environment variables:
+GOOGLE_SERVICE_ACCOUNT_FILE
+GOOGLE_SPREADSHEET_NAME
+AI_SHEET
+DASHBOARD_USERNAME
+DASHBOARD_PASSWORD

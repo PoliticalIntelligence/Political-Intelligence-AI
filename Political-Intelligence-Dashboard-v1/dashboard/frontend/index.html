@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Political Intelligence Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <div class="eyebrow">POLITICAL INTELLIGENCE AI</div>
+    <h1>Political Intelligence Dashboard</h1>
+    <p>Analyse MLA activity using the actual post date and AI classification.</p>
+  </div>
+  <button id="refreshBtn" class="button secondary">Refresh data</button>
+</header>
+
+<main class="container">
+  <section class="control panel">
+    <div class="control-title">
+      <div><span class="label">ANALYSIS PERIOD</span><strong id="periodLabel">Last 7 Days</strong></div>
+      <span id="dataStatus" class="muted">Loading…</span>
+    </div>
+    <div class="quick-row">
+      <button class="quick active" data-preset="last7">Last 7 Days</button>
+      <button class="quick" data-preset="last30">Last 30 Days</button>
+      <button class="quick" data-preset="today">Today</button>
+      <button class="quick" data-preset="thisweek">This Week</button>
+      <button class="quick" data-preset="thismonth">This Month</button>
+    </div>
+    <div class="date-grid">
+      <label>Specific date<input type="date" id="exactDate"></label>
+      <label>From<input type="date" id="fromDate"></label>
+      <label>To<input type="date" id="toDate"></label>
+      <button id="customBtn" class="button primary">Apply custom range</button>
+      <button id="resetDates" class="button secondary">Reset dates</button>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title"><h2>Filters</h2><button id="resetFilters" class="link-button">Reset all</button></div>
+    <div class="filter-grid">
+      <label>Author / MLA<select id="author"></select></label>
+      <label>District<select id="district"></select></label>
+      <label>Assembly<select id="assembly"></select></label>
+      <label>Main Category<select id="category"></select></label>
+      <label>Sub Category<select id="subcategory"></select></label>
+      <label>Event Type<select id="event"></select></label>
+      <label>Party<select id="party"></select></label>
+      <label>Leader<select id="leader"></select></label>
+      <label>Development Sector<select id="sector"></select></label>
+      <label>Government Scheme<select id="scheme"></select></label>
+    </div>
+  </section>
+
+  <section class="cards">
+    <article><span>Total Posts</span><strong id="total">0</strong></article>
+    <article><span>Political Posts</span><strong id="political">0</strong></article>
+    <article><span>Development</span><strong id="development">0</strong></article>
+    <article><span>Law &amp; Order</span><strong id="lawOrder">0</strong></article>
+    <article><span>Welfare</span><strong id="welfare">0</strong></article>
+    <article><span>Opposition Mentions</span><strong id="opposition">0</strong></article>
+  </section>
+
+  <section class="grid charts">
+    <article class="panel chart-panel wide"><h2>Activity by Post Date</h2><canvas id="dailyChart"></canvas></article>
+    <article class="panel chart-panel"><h2>Main Category</h2><canvas id="categoryChart"></canvas></article>
+    <article class="panel chart-panel"><h2>Development Sector</h2><canvas id="sectorChart"></canvas></article>
+    <article class="panel chart-panel"><h2>Party Mentions</h2><canvas id="partyChart"></canvas></article>
+    <article class="panel chart-panel"><h2>Event Types</h2><canvas id="eventChart"></canvas></article>
+    <article class="panel chart-panel"><h2>Most Active Authors</h2><canvas id="leaderChart"></canvas></article>
+  </section>
+
+  <section class="panel">
+    <div class="panel-title">
+      <div><h2>Post Analysis</h2><span id="postCount" class="muted">0 posts</span></div>
+      <span class="muted">Post Date is the date used for period analysis.</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Post Date</th><th>Author / MLA</th><th>Category</th><th>Event</th><th>Party</th><th>Leader</th><th>Development</th><th>AI Summary</th><th>Post</th></tr>
+        </thead>
+        <tbody id="postsBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<script src="/static/app.js"></script>
+</body>
+</html>
