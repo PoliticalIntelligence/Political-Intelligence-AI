@@ -1,0 +1,64 @@
+name: Daily Political Intelligence Scraper
+
+on:
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 8 * * *"
+      timezone: "Asia/Kolkata"
+
+permissions:
+  contents: read
+
+jobs:
+  run-scraper:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: requirements.txt
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright Chromium
+        run: |
+          python -m playwright install --with-deps chromium
+
+      - name: Create Google service-account file
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          mkdir -p credentials
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          value = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+          if not value.strip():
+              raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON secret is empty.")
+
+          path = Path("credentials/service_account.json")
+          path.write_text(value, encoding="utf-8")
+          print("Google service-account file created.")
+          PY
+
+      - name: Run daily scraper and AI pipeline
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_SERVICE_ACCOUNT_FILE: credentials/service_account.json
+          GOOGLE_SHEETS_ID: 1grlbuXqu84eBwEEiKvKUuVjnET9zA76ESa1G5xcvMNI
+          RAW_POSTS_SHEET: Raw_Posts
+          TZ: Asia/Kolkata
+        run: |
+          python main.py
