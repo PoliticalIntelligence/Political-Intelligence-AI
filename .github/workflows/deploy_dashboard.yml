@@ -2,10 +2,12 @@ name: Publish Dashboard
 
 on:
   workflow_dispatch:
+
   workflow_run:
     workflows:
       - Daily Political Intelligence Scraper
-    types: [completed]
+    types:
+      - completed
 
 permissions:
   contents: read
@@ -18,52 +20,111 @@ concurrency:
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
     runs-on: ubuntu-latest
 
     steps:
+      # --------------------------------------------------
+      # CHECKOUT
+      # --------------------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # PYTHON
+      # --------------------------------------------------
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
+      # --------------------------------------------------
+      # DEPENDENCIES
+      # --------------------------------------------------
       - name: Install dashboard export dependencies
         run: |
           python -m pip install --upgrade pip
           pip install gspread google-auth
 
+      # --------------------------------------------------
+      # GOOGLE SERVICE ACCOUNT
+      # --------------------------------------------------
       - name: Create Google service-account file
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
         run: |
           mkdir -p credentials
+
           python - <<'PY'
           import os
           from pathlib import Path
+
           value = os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]
+
           if not value.strip():
-              raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON secret is empty.")
-          Path("credentials/service_account.json").write_text(value, encoding="utf-8")
+              raise RuntimeError(
+                  "GOOGLE_SERVICE_ACCOUNT_JSON secret is empty."
+              )
+
+          Path(
+              "credentials/service_account.json"
+          ).write_text(
+              value,
+              encoding="utf-8"
+          )
           PY
 
+      # --------------------------------------------------
+      # GENERATE DASHBOARD DATA
+      # --------------------------------------------------
       - name: Generate public dashboard data
         env:
           GOOGLE_SERVICE_ACCOUNT_FILE: credentials/service_account.json
           GOOGLE_SHEETS_ID: 1grlbuXqu84eBwEEiKvKUuVjnET9zA76ESa1G5xcvMNI
           AI_ANALYSIS_SHEET: AI Analysis
           DASHBOARD_DATA_FILE: dashboard/data/dashboard-data.json
-        run: python scripts/export_dashboard_data.py
+        run: |
+          python scripts/export_dashboard_data.py
 
+      # --------------------------------------------------
+      # PREPARE GITHUB PAGES SITE
+      # --------------------------------------------------
+      - name: Prepare Pages site
+        run: |
+          rm -rf pages_site
+
+          mkdir -p pages_site/data
+
+          # Put frontend files at the ROOT of the Pages site
+          cp dashboard/frontend/index.html pages_site/
+          cp dashboard/frontend/app.js pages_site/
+          cp dashboard/frontend/style.css pages_site/
+
+          # Put generated dashboard data in /data
+          cp dashboard/data/dashboard-data.json pages_site/data/
+
+          echo "Pages site structure:"
+          find pages_site -maxdepth 2 -type f -print
+
+      # --------------------------------------------------
+      # CONFIGURE PAGES
+      # --------------------------------------------------
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      # --------------------------------------------------
+      # UPLOAD SITE
+      # --------------------------------------------------
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dashboard
+          path: pages_site
 
+      # --------------------------------------------------
+      # DEPLOY
+      # --------------------------------------------------
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
