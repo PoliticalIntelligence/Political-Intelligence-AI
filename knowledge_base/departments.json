@@ -1,0 +1,58 @@
+[
+  {
+    "department": "PWD",
+    "aliases": [
+      "PWD",
+      "लोक निर्माण विभाग",
+      "पीडब्ल्यूडी"
+    ]
+  },
+  {
+    "department": "Health",
+    "aliases": [
+      "स्वास्थ्य विभाग",
+      "CHC",
+      "PHC",
+      "सीएचसी",
+      "पीएचसी",
+      "Medical College",
+      "District Hospital",
+      "अस्पताल"
+    ]
+  },
+  {
+    "department": "Education",
+    "aliases": [
+      "विद्यालय",
+      "स्कूल",
+      "कॉलेज",
+      "विश्वविद्यालय",
+      "शिक्षा विभाग"
+    ]
+  },
+  {
+    "department": "Police",
+    "aliases": [
+      "पुलिस",
+      "थाना",
+      "कोतवाली",
+      "SP Office"
+    ]
+  },
+  {
+    "department": "Agriculture",
+    "aliases": [
+      "कृषि विभाग",
+      "Krishi",
+      "Farmer"
+    ]
+  },
+  {
+    "department": "Jal Nigam",
+    "aliases": [
+      "जल निगम",
+      "हर घर जल",
+      "जल जीवन मिशन"
+    ]
+  }
+]

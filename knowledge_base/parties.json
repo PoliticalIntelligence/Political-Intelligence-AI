@@ -1,0 +1,58 @@
+[
+  {
+    "party": "BJP",
+    "aliases": [
+      "BJP",
+      "Bharatiya Janata Party",
+      "Bharatiya Janta Party",
+      "भाजपा",
+      "भारतीय जनता पार्टी",
+      "भारतीय जनता पार्टी (भाजपा)"
+    ]
+  },
+  {
+    "party": "SP",
+    "aliases": [
+      "SP",
+      "Samajwadi Party",
+      "सपा",
+      "समाजवादी पार्टी"
+    ]
+  },
+  {
+    "party": "BSP",
+    "aliases": [
+      "BSP",
+      "Bahujan Samaj Party",
+      "बसपा",
+      "बहुजन समाज पार्टी"
+    ]
+  },
+  {
+    "party": "Congress",
+    "aliases": [
+      "Congress",
+      "Indian National Congress",
+      "INC",
+      "कांग्रेस"
+    ]
+  },
+  {
+    "party": "JD(U)",
+    "aliases": [
+      "JD(U)",
+      "Janata Dal United",
+      "जदयू",
+      "जनता दल यूनाइटेड"
+    ]
+  },
+  {
+    "party": "RJD",
+    "aliases": [
+      "RJD",
+      "Rashtriya Janata Dal",
+      "राजद",
+      "राष्ट्रीय जनता दल"
+    ]
+  }
+]

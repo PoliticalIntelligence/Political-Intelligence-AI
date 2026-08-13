@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+credentials/
+service_account.json
+*.pem
+*.key
+
+# Logs
+logs/
+*.log
+
+# Scraper / browser state
+state/
+browser_state/
+cookies/
+
+# Debug / temporary files
+debug/
+output/
+*.tmp
+*.bak
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

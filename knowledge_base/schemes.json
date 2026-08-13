@@ -1,0 +1,40 @@
+[
+  {
+    "scheme": "PMAY",
+    "aliases": [
+      "प्रधानमंत्री आवास योजना",
+      "पीएम आवास योजना",
+      "Pradhan Mantri Awas Yojana"
+    ],
+    "sector": "Housing",
+    "department": "Rural Development"
+  },
+  {
+    "scheme": "PM Kisan",
+    "aliases": [
+      "प्रधानमंत्री किसान सम्मान निधि",
+      "पीएम किसान",
+      "PM Kisan"
+    ],
+    "sector": "Agriculture",
+    "department": "Agriculture"
+  },
+  {
+    "scheme": "Ayushman Bharat",
+    "aliases": [
+      "आयुष्मान भारत",
+      "आयुष्मान योजना"
+    ],
+    "sector": "Health",
+    "department": "Health"
+  },
+  {
+    "scheme": "Jal Jeevan Mission",
+    "aliases": [
+      "जल जीवन मिशन",
+      "हर घर जल"
+    ],
+    "sector": "Water Supply",
+    "department": "Jal Nigam"
+  }
+]

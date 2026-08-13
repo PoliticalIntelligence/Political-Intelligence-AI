@@ -1,0 +1,58 @@
+[
+  {
+    "sector": "Road",
+    "keywords": [
+      "Road",
+      "सड़क",
+      "मार्ग",
+      "Highway",
+      "Flyover"
+    ]
+  },
+  {
+    "sector": "Bridge",
+    "keywords": [
+      "Bridge",
+      "पुल",
+      "Overbridge",
+      "ROB"
+    ]
+  },
+  {
+    "sector": "Health",
+    "keywords": [
+      "Hospital",
+      "CHC",
+      "PHC",
+      "Medical",
+      "Health"
+    ]
+  },
+  {
+    "sector": "Education",
+    "keywords": [
+      "School",
+      "College",
+      "University",
+      "विद्यालय"
+    ]
+  },
+  {
+    "sector": "Electricity",
+    "keywords": [
+      "Transformer",
+      "Power",
+      "Electricity",
+      "बिजली"
+    ]
+  },
+  {
+    "sector": "Water Supply",
+    "keywords": [
+      "Drinking Water",
+      "Jal Jeevan",
+      "पेयजल",
+      "जलापूर्ति"
+    ]
+  }
+]
