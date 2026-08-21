@@ -1,110 +1,526 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Political & Governance Analysis Dashboard</title>
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>UP MLA Social Media Analysis Dashboard</title>
+
+  <link rel="stylesheet" href="style.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.min.js"></script>
 </head>
+
 <body>
+
 <header class="hero">
   <div class="hero-inner">
-    <div>
-      <div class="eyebrow">SOCIAL MEDIA INTELLIGENCE</div>
-      <h1>AI Political &amp; Governance Analysis Dashboard</h1>
-      <p>Analyse MLA activity using actual post dates and AI classification.</p>
+
+    <div class="hero-copy">
+      <div class="eyebrow">
+        SOCIAL MEDIA INTELLIGENCE
+      </div>
+
+      <h1>
+        UP MLA Social Media Analysis Dashboard
+      </h1>
+
+      <p>
+        Track MLA posting activity, content themes and AI-classified narratives.
+      </p>
     </div>
-    <div class="status-pill" id="dataStatus">Loading data…</div>
+
+    <div class="status-pill" id="dataStatus">
+      Loading data…
+    </div>
+
   </div>
 </header>
 
+
 <main class="container">
-<section class="card period-card">
-  <div class="section-top">
-    <div>
-      <div class="eyebrow dark">ANALYSIS PERIOD</div>
-      <div class="period-title" id="periodTitle">—</div>
+
+  <!-- =========================================================
+       ANALYSIS PERIOD
+       ========================================================= -->
+
+  <section class="card period-card">
+
+    <div class="section-top">
+
+      <div>
+        <div class="eyebrow dark">
+          ANALYSIS PERIOD
+        </div>
+
+        <div class="period-title" id="periodTitle">
+          —
+        </div>
+      </div>
+
+      <div class="count-note" id="validCount">
+        Showing 0 valid posts
+      </div>
+
     </div>
-    <div class="count-note" id="validCount">Showing 0 valid posts</div>
-  </div>
-  <div class="preset-row">
-    <button class="preset active" data-preset="7d">Last 7 Days</button>
-    <button class="preset" data-preset="30d">Last 30 Days</button>
-    <button class="preset" data-preset="today">Today</button>
-    <button class="preset" data-preset="week">This Week</button>
-    <button class="preset" data-preset="month">This Month</button>
-  </div>
-  <div class="date-grid">
-    <label><span>Specific date</span><input type="date" id="specificDate"></label>
-    <label><span>From</span><input type="date" id="fromDate"></label>
-    <label><span>To</span><input type="date" id="toDate"></label>
-    <div class="date-actions">
-      <button class="primary" id="applyCustom">Apply custom range</button>
-      <button class="secondary" id="resetDates">Reset dates</button>
+
+
+    <div class="preset-row">
+
+      <button
+        class="preset active"
+        data-preset="7d"
+      >
+        Last 7 Days
+      </button>
+
+      <button
+        class="preset"
+        data-preset="30d"
+      >
+        Last 30 Days
+      </button>
+
+      <button
+        class="preset"
+        data-preset="today"
+      >
+        Today
+      </button>
+
+      <button
+        class="preset"
+        data-preset="week"
+      >
+        This Week
+      </button>
+
+      <button
+        class="preset"
+        data-preset="month"
+      >
+        This Month
+      </button>
+
     </div>
-  </div>
-</section>
 
-<section class="card">
-  <div class="section-top">
-    <h2>Filters</h2>
-    <button class="text-button" id="resetFilters">Reset all</button>
-  </div>
-  <div class="filter-grid">
-    <label><span>Author / MLA</span><select id="f-author"></select></label>
-    <label><span>District</span><select id="f-district"></select></label>
-    <label><span>Assembly</span><select id="f-assembly"></select></label>
-    <label><span>Main Category</span><select id="f-main-category"></select></label>
-    <label><span>Sub Category</span><select id="f-sub-category"></select></label>
-    <label><span>Event Type</span><select id="f-event-type"></select></label>
-    <label><span>Party</span><select id="f-party"></select></label>
-    <label><span>Leader</span><select id="f-leader"></select></label>
-    <label><span>Development Sector</span><select id="f-sector"></select></label>
-    <label><span>Government Scheme</span><select id="f-scheme"></select></label>
-  </div>
-</section>
 
-<section class="kpi-grid">
-  <div class="kpi"><div>Total Posts</div><strong id="kpi-total">0</strong></div>
-  <div class="kpi"><div>Political Posts</div><strong id="kpi-political">0</strong></div>
-  <div class="kpi"><div>Development</div><strong id="kpi-development">0</strong></div>
-  <div class="kpi"><div>Law &amp; Order</div><strong id="kpi-law">0</strong></div>
-  <div class="kpi"><div>Welfare</div><strong id="kpi-welfare">0</strong></div>
-  <div class="kpi"><div>Opposition Mentions</div><strong id="kpi-opposition">0</strong></div>
-</section>
+    <div class="date-grid">
 
-<section class="chart-grid">
-  <div class="card chart-card"><div class="chart-title">Posts by Main Category</div><canvas id="categoryChart"></canvas></div>
-  <div class="card chart-card"><div class="chart-title">Posts by Development Sector</div><canvas id="sectorChart"></canvas></div>
-  <div class="card chart-card"><div class="chart-title">Party Mentions</div><canvas id="partyChart"></canvas></div>
-  <div class="card chart-card"><div class="chart-title">Top Leaders Mentioned</div><canvas id="leaderChart"></canvas></div>
-</section>
+      <label>
+        <span>Specific date</span>
 
-<section class="card table-card">
-  <div class="section-top">
-    <div><h2>Filtered Posts</h2><div class="muted" id="tableNote">—</div></div>
-    <button class="secondary" id="downloadCsv">Download CSV</button>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead><tr>
-        <th>Post Date</th><th>Author</th><th>Main Category</th><th>Sub Category</th>
-        <th>Event Type</th><th>Party</th><th>Development Sector</th><th>Place of Visit</th>
-        <th>Summary</th><th>Post</th>
-      </tr></thead>
-      <tbody id="postTableBody"></tbody>
-    </table>
-  </div>
-  <div class="pagination">
-    <button class="secondary" id="prevPage">Previous</button>
-    <span id="pageInfo">Page 1</span>
-    <button class="secondary" id="nextPage">Next</button>
-  </div>
-</section>
+        <input
+          type="date"
+          id="specificDate"
+        >
+      </label>
 
-<footer class="footer"><span id="updatedAt">Data updated: —</span><span>Public dashboard</span></footer>
+
+      <label>
+        <span>From</span>
+
+        <input
+          type="date"
+          id="fromDate"
+        >
+      </label>
+
+
+      <label>
+        <span>To</span>
+
+        <input
+          type="date"
+          id="toDate"
+        >
+      </label>
+
+
+      <div class="date-actions">
+
+        <button
+          class="primary"
+          id="applyCustom"
+        >
+          Apply custom range
+        </button>
+
+        <button
+          class="secondary"
+          id="resetDates"
+        >
+          Reset dates
+        </button>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+
+  <!-- =========================================================
+       FILTERS
+       ========================================================= -->
+
+  <section class="card filters-card">
+
+    <div class="section-top">
+
+      <div>
+
+        <div class="eyebrow dark">
+          FILTERS
+        </div>
+
+        <h2>
+          Explore MLA Activity
+        </h2>
+
+        <div class="muted">
+          Select an MLA for individual analysis or compare all MLAs.
+        </div>
+
+      </div>
+
+
+      <button
+        class="text-button"
+        id="resetFilters"
+      >
+        Reset all
+      </button>
+
+    </div>
+
+
+    <div class="filter-grid">
+
+      <label>
+        <span>MLA</span>
+
+        <select id="f-author">
+        </select>
+      </label>
+
+
+      <label>
+        <span>Main Category</span>
+
+        <select id="f-main-category">
+        </select>
+      </label>
+
+    </div>
+
+  </section>
+
+
+
+  <!-- =========================================================
+       KPI CARDS
+       ========================================================= -->
+
+  <section class="kpi-grid">
+
+    <div class="kpi">
+      <div>Total Posts</div>
+
+      <strong id="kpi-total">
+        0
+      </strong>
+    </div>
+
+
+    <div class="kpi">
+      <div>Active MLAs</div>
+
+      <strong id="kpi-political">
+        0
+      </strong>
+    </div>
+
+
+    <div class="kpi">
+      <div>AI Analysed</div>
+
+      <strong id="kpi-development">
+        0
+      </strong>
+    </div>
+
+
+    <div class="kpi">
+      <div>Avg. Posts / MLA</div>
+
+      <strong id="kpi-law">
+        0
+      </strong>
+    </div>
+
+
+    <div class="kpi">
+      <div>Selected MLA Posts</div>
+
+      <strong id="kpi-welfare">
+        —
+      </strong>
+    </div>
+
+
+    <div class="kpi">
+      <div>Opposition Mentions</div>
+
+      <strong id="kpi-opposition">
+        0
+      </strong>
+    </div>
+
+  </section>
+
+
+
+  <!-- =========================================================
+       MAIN CATEGORY ANALYSIS
+       ========================================================= -->
+
+  <section class="chart-grid">
+
+    <div class="card chart-card">
+
+      <div class="chart-header">
+
+        <div>
+
+          <div class="eyebrow dark">
+            CONTENT MIX
+          </div>
+
+          <div class="chart-title">
+            Posts by Main Category
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="chart-container">
+        <canvas id="categoryChart"></canvas>
+      </div>
+
+    </div>
+
+
+    <div class="card chart-card">
+
+      <div class="chart-header">
+
+        <div>
+
+          <div class="eyebrow dark">
+            ACTIVITY
+          </div>
+
+          <div class="chart-title">
+            Posting Activity Trend
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div class="chart-container">
+        <canvas id="activityChart"></canvas>
+      </div>
+
+    </div>
+
+  </section>
+
+
+
+  <!-- =========================================================
+       SOCIAL MEDIA ACTIVITY
+       ========================================================= -->
+
+  <section class="card activity-card">
+
+    <div class="section-top">
+
+      <div>
+
+        <div class="eyebrow dark">
+          SOCIAL MEDIA ACTIVITY
+        </div>
+
+        <h2>
+          Daily Posting Trend
+        </h2>
+
+        <div class="muted">
+          Daily Facebook posting activity for the selected date range and MLA.
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="activity-chart-container">
+      <canvas id="activityChartLarge"></canvas>
+    </div>
+
+  </section>
+
+
+
+  <!-- =========================================================
+       FILTERED POSTS
+       ========================================================= -->
+
+  <section class="card table-card">
+
+    <div class="section-top">
+
+      <div>
+
+        <h2>
+          Filtered Posts
+        </h2>
+
+        <div
+          class="muted"
+          id="tableNote"
+        >
+          —
+        </div>
+
+      </div>
+
+
+      <button
+        class="secondary"
+        id="downloadCsv"
+      >
+        Download CSV
+      </button>
+
+    </div>
+
+
+    <div class="table-wrap">
+
+      <table>
+
+        <thead>
+
+          <tr>
+
+            <th>
+              Post Date
+            </th>
+
+            <th>
+              Author
+            </th>
+
+            <th>
+              Main Category
+            </th>
+
+            <th>
+              Sub Category
+            </th>
+
+            <th>
+              Event Type
+            </th>
+
+            <th>
+              Party
+            </th>
+
+            <th>
+              Development Sector
+            </th>
+
+            <th>
+              Place of Visit
+            </th>
+
+            <th>
+              Summary
+            </th>
+
+            <th>
+              Post
+            </th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody id="postTableBody">
+        </tbody>
+
+      </table>
+
+    </div>
+
+
+    <div class="pagination">
+
+      <button
+        class="secondary"
+        id="prevPage"
+      >
+        Previous
+      </button>
+
+
+      <span id="pageInfo">
+        Page 1
+      </span>
+
+
+      <button
+        class="secondary"
+        id="nextPage"
+      >
+        Next
+      </button>
+
+    </div>
+
+  </section>
+
+
+
+  <!-- =========================================================
+       FOOTER
+       ========================================================= -->
+
+  <footer class="footer">
+
+    <span id="updatedAt">
+      Data updated: —
+    </span>
+
+    <span>
+      Public dashboard
+    </span>
+
+  </footer>
+
 </main>
+
+
 <script src="app.js"></script>
+
 </body>
 </html>
