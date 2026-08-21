@@ -1,146 +1,182 @@
 import os
 
-import gspread
-from google.oauth2.service_account import Credentials
+from dotenv import load_dotenv
 
 from ai_classifier.classifier import AIClassifier
 from ai_classifier.knowledge_engine import KnowledgeEngine
-from knowledge_base.political_lookup import PoliticalLookup
-from gis.geocoder import GeoCoder
-
-# ==========================================================
-# GOOGLE SHEETS
-# ==========================================================
-
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-]
-
-SERVICE_ACCOUNT_FILE = "credentials/service_account.json"
-
-SPREADSHEET_NAME = "Political Intelligence Database"
-
-RAW_SHEET = "Raw_Posts"
-AI_SHEET = "AI Analysis"
+from processors.sheet_writer import SheetWriter
 
 
-# ==========================================================
-# CONNECT
-# ==========================================================
+class AIProcessor:
+    """
+    AI classification + knowledge enrichment + Google Sheets writing.
 
-credentials = Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE,
-    scopes=SCOPES
-)
+    Gemini requests are rate-limited inside AIClassifier to stay
+    safely below the free-tier requests-per-minute limit.
 
-gc = gspread.authorize(credentials)
+    GIS/geocoding has been removed. The existing SheetWriter in the
+    current project still expects a `geo` argument, so we provide a
+    blank geo object for compatibility.
+    """
 
-spreadsheet = gc.open(SPREADSHEET_NAME)
+    def __init__(self, logger):
+        load_dotenv()
 
-raw_sheet = spreadsheet.worksheet(RAW_SHEET)
-ai_sheet = spreadsheet.worksheet(AI_SHEET)
+        api_key = os.getenv("GEMINI_API_KEY")
 
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not found.")
 
-# ==========================================================
-# AI
-# ==========================================================
+        self.logger = logger
 
-API_KEY = os.getenv("GEMINI_API_KEY")
+        self.classifier = AIClassifier(api_key)
 
-classifier = AIClassifier(API_KEY)
-knowledge_engine = KnowledgeEngine()
+        self.knowledge = KnowledgeEngine()
 
+        self.writer = SheetWriter(logger)
 
-# ==========================================================
-# LOAD DATA
-# ==========================================================
+    def run(self, posts):
 
-raw_records = raw_sheet.get_all_records()
+        self.logger.log("=" * 70)
+        self.logger.log("AI PROCESSOR STARTED")
+        self.logger.log("=" * 70)
 
-processed_rows = set()
+        if not posts:
+            self.logger.log("No posts received.")
+            return
 
-try:
+        success = 0
+        failed = 0
+        skipped = 0
 
-    existing = ai_sheet.get_all_records()
+        total = len(posts)
 
-    for row in existing:
+        self.logger.log(
+            f"Total posts received: {total}"
+        )
 
-        processed_rows.add(str(row["Raw Row"]))
+        self.logger.log(
+            "Gemini rate limit protection: "
+            "approximately 10 requests/minute"
+        )
 
-except Exception:
-    pass
+        for index, post in enumerate(posts, start=1):
 
+            try:
 
-rows_to_append = []
+                self.logger.log(
+                    f"[{index}/{total}] Processing..."
+                )
 
+                caption = (post.text or "").strip()
 
-# ==========================================================
-# PROCESS
-# ==========================================================
+                # -------------------------------------------------
+                # EMPTY CAPTION
+                # -------------------------------------------------
 
-for index, row in enumerate(raw_records, start=2):
+                if not caption:
 
-    row_id = str(index)
+                    skipped += 1
 
-    if row_id in processed_rows:
-        continue
+                    self.logger.log(
+                        f"[{index}/{total}] "
+                        "Skipped - empty caption."
+                    )
 
-    caption = row.get("Caption", "")
+                    continue
 
-    if not caption.strip():
-        continue
+                # -------------------------------------------------
+                # AI CLASSIFICATION
+                # -------------------------------------------------
 
-    print(f"Processing Row {row_id}")
+                self.logger.log(
+                    f"[{index}/{total}] "
+                    "Sending to Gemini..."
+                )
 
-    result = classifier.classify(caption)
+                result = self.classifier.classify(
+                    caption
+                )
 
-    result = knowledge_engine.enrich(result)
+                # -------------------------------------------------
+                # KNOWLEDGE ENRICHMENT
+                # -------------------------------------------------
 
-    rows_to_append.append([
+                result = self.knowledge.enrich(
+                    result
+                )
 
-        row_id,
+                # -------------------------------------------------
+                # STANDARDIZED AUTHOR
+                # -------------------------------------------------
 
-        row.get("Facebook Page", ""),
-        row.get("Post Date", ""),
-        caption,
+                if getattr(post, "author", None):
 
-        result["main_category"],
-        result["sub_category"],
-        result["event_type"],
+                    post.author = str(
+                        post.author
+                    ).strip()
 
-        ", ".join(result["place_of_visit"]),
+                # -------------------------------------------------
+                # GIS COMPATIBILITY OBJECT
+                # -------------------------------------------------
 
-        result["location_type"],
-        result["beneficiary_group"],
-        result["development_sector"],
-        result["government_scheme"],
-        result["government_department"],
-        result["party_mentioned"],
-        result["leader_mentioned"],
+                geo = {
+                    "latitude": "",
+                    "longitude": "",
+                    "status": "NOT_FOUND",
+                    "source": "",
+                }
 
-        ", ".join(result["mentioned_persons"]),
+                # -------------------------------------------------
+                # WRITE TO GOOGLE SHEET
+                # -------------------------------------------------
 
-        result["opposition_mention"],
-        result["opposition_target"],
+                self.writer.append_analysis(
+                    post,
+                    result,
+                    geo,
+                )
 
-        ", ".join(result["keywords"]),
+                success += 1
 
-        result["summary"]
+                self.logger.log(
+                    f"[{index}/{total}] Completed."
+                )
 
-    ])
+            except Exception as exc:
 
+                failed += 1
 
-# ==========================================================
-# WRITE
-# ==========================================================
+                self.logger.log(
+                    f"[{index}/{total}] "
+                    f"Failed: "
+                    f"{type(exc).__name__}: {exc}"
+                )
 
-if rows_to_append:
+        # ---------------------------------------------------------
+        # FINAL SUMMARY
+        # ---------------------------------------------------------
 
-    ai_sheet.append_rows(rows_to_append)
+        self.logger.log("")
 
-    print(f"{len(rows_to_append)} rows written.")
+        self.logger.log("=" * 70)
+        self.logger.log("AI PROCESSING COMPLETED")
+        self.logger.log("=" * 70)
 
-else:
+        self.logger.log(
+            f"Total received : {total}"
+        )
 
-    print("No new rows found.")
+        self.logger.log(
+            f"Success        : {success}"
+        )
+
+        self.logger.log(
+            f"Skipped        : {skipped}"
+        )
+
+        self.logger.log(
+            f"Failed         : {failed}"
+        )
+
+        self.logger.log("=" * 70)
