@@ -1,8 +1,9 @@
 import json
 import os
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import gspread
 from google.oauth2.service_account import Credentials
@@ -34,9 +35,11 @@ OUTPUT_FILE = Path(
     )
 )
 
+IST = ZoneInfo("Asia/Kolkata")
+
 
 # ============================================================
-# HELPERS
+# BASIC HELPERS
 # ============================================================
 
 def clean(value):
@@ -47,39 +50,29 @@ def clean(value):
 
 
 # ============================================================
-# SCRAPED DATE
+# SCRAPED DATE PARSER
 # ============================================================
 
 def parse_scraped_at(value):
-    """
-    Convert Scraped At into a datetime.
-
-    Supports:
-        2026-08-21 09:00:00
-        2026-08-21T09:00:00
-        ISO timestamps with timezone
-    """
-
     raw = clean(value)
 
     if not raw:
         return None
 
-    # ISO format
+    # ISO timestamps
     try:
         dt = datetime.fromisoformat(
             raw.replace("Z", "+00:00")
         )
 
         if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.replace(tzinfo=IST)
 
-        return dt
+        return dt.astimezone(IST)
 
     except ValueError:
         pass
 
-    # Standard formats
     formats = [
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%d %H:%M",
@@ -88,12 +81,15 @@ def parse_scraped_at(value):
     ]
 
     for fmt in formats:
-
         try:
+            dt = datetime.strptime(
+                raw,
+                fmt,
+            )
 
-            dt = datetime.strptime(raw, fmt)
-
-            return dt.replace(tzinfo=timezone.utc)
+            return dt.replace(
+                tzinfo=IST
+            )
 
         except ValueError:
             pass
@@ -102,36 +98,39 @@ def parse_scraped_at(value):
 
 
 # ============================================================
-# FACEBOOK RELATIVE DATE
+# RELATIVE FACEBOOK TIMESTAMP
 # ============================================================
 
-def parse_relative_timestamp(value, scraped_at):
+def parse_relative_timestamp(
+    value,
+    reference_time,
+):
     """
-    Convert Facebook-style relative timestamps.
+    Converts Facebook-style relative values.
 
     Examples:
-
         4h
-        1h
-        2d
-        1 week ago
+        2h
+        1d
+        3d
+        2 weeks
         20 weeks ago
-        3 months ago
-
-    Uses Scraped At as the reference point.
+        1 month ago
     """
 
     raw = clean(value).lower()
 
-    if not raw or scraped_at is None:
+    if not raw:
         return None
 
-    # Remove words such as "ago"
-    raw = raw.replace("ago", "").strip()
+    raw = raw.replace(
+        "ago",
+        "",
+    ).strip()
 
-    # ---------------------------
+    # --------------------------------------------------------
     # HOURS
-    # ---------------------------
+    # --------------------------------------------------------
 
     match = re.match(
         r"^(\d+)\s*h$",
@@ -139,14 +138,17 @@ def parse_relative_timestamp(value, scraped_at):
     )
 
     if match:
+        hours = int(
+            match.group(1)
+        )
 
-        hours = int(match.group(1))
+        return reference_time - timedelta(
+            hours=hours
+        )
 
-        return scraped_at - timedelta(hours=hours)
-
-    # ---------------------------
+    # --------------------------------------------------------
     # MINUTES
-    # ---------------------------
+    # --------------------------------------------------------
 
     match = re.match(
         r"^(\d+)\s*m$",
@@ -154,14 +156,17 @@ def parse_relative_timestamp(value, scraped_at):
     )
 
     if match:
+        minutes = int(
+            match.group(1)
+        )
 
-        minutes = int(match.group(1))
+        return reference_time - timedelta(
+            minutes=minutes
+        )
 
-        return scraped_at - timedelta(minutes=minutes)
-
-    # ---------------------------
+    # --------------------------------------------------------
     # DAYS
-    # ---------------------------
+    # --------------------------------------------------------
 
     match = re.match(
         r"^(\d+)\s*d$",
@@ -169,14 +174,17 @@ def parse_relative_timestamp(value, scraped_at):
     )
 
     if match:
+        days = int(
+            match.group(1)
+        )
 
-        days = int(match.group(1))
+        return reference_time - timedelta(
+            days=days
+        )
 
-        return scraped_at - timedelta(days=days)
-
-    # ---------------------------
+    # --------------------------------------------------------
     # WEEKS
-    # ---------------------------
+    # --------------------------------------------------------
 
     match = re.match(
         r"^(\d+)\s*weeks?$",
@@ -184,16 +192,17 @@ def parse_relative_timestamp(value, scraped_at):
     )
 
     if match:
+        weeks = int(
+            match.group(1)
+        )
 
-        weeks = int(match.group(1))
-
-        return scraped_at - timedelta(
+        return reference_time - timedelta(
             weeks=weeks
         )
 
-    # ---------------------------
+    # --------------------------------------------------------
     # MONTHS
-    # ---------------------------
+    # --------------------------------------------------------
 
     match = re.match(
         r"^(\d+)\s*months?$",
@@ -201,43 +210,80 @@ def parse_relative_timestamp(value, scraped_at):
     )
 
     if match:
+        months = int(
+            match.group(1)
+        )
 
-        months = int(match.group(1))
-
-        return scraped_at - timedelta(
+        return reference_time - timedelta(
             days=months * 30
+        )
+
+    # --------------------------------------------------------
+    # TODAY
+    # --------------------------------------------------------
+
+    if raw in (
+        "today",
+        "just now",
+        "now",
+    ):
+        return reference_time
+
+    # --------------------------------------------------------
+    # YESTERDAY
+    # --------------------------------------------------------
+
+    if raw == "yesterday":
+        return reference_time - timedelta(
+            days=1
         )
 
     return None
 
 
 # ============================================================
-# ACTUAL POST DATE
+# NORMALIZE POST DATE
 # ============================================================
 
-def normalize_post_date(timestamp, scraped_at):
+def normalize_post_date(
+    timestamp,
+    scraped_at,
+    fallback_reference,
+):
     """
-    Determine the best available post date.
+    Determine the best available calendar date.
 
     Priority:
-
-    1. Actual calendar date
-    2. Facebook relative timestamp + Scraped At
-    3. Scraped At date
+        1. Actual calendar date
+        2. Relative timestamp + Scraped At
+        3. Relative timestamp + export/run time
+        4. Scraped At date
+        5. Export/run date
     """
 
     raw = clean(timestamp)
 
+    # --------------------------------------------------------
+    # Empty timestamp
+    # --------------------------------------------------------
+
     if not raw:
-        scraped_dt = parse_scraped_at(scraped_at)
+
+        scraped_dt = parse_scraped_at(
+            scraped_at
+        )
 
         if scraped_dt:
-            return scraped_dt.strftime("%Y-%m-%d")
+            return scraped_dt.strftime(
+                "%Y-%m-%d"
+            )
 
-        return ""
+        return fallback_reference.strftime(
+            "%Y-%m-%d"
+        )
 
     # --------------------------------------------------------
-    # Already ISO date
+    # ISO DATE
     # --------------------------------------------------------
 
     if (
@@ -247,20 +293,20 @@ def normalize_post_date(timestamp, scraped_at):
     ):
 
         try:
-
             dt = datetime.strptime(
                 raw[:10],
                 "%Y-%m-%d",
             )
 
-            return dt.strftime("%Y-%m-%d")
+            return dt.strftime(
+                "%Y-%m-%d"
+            )
 
         except ValueError:
-
             pass
 
     # --------------------------------------------------------
-    # Normal calendar dates
+    # NORMAL CALENDAR DATES
     # --------------------------------------------------------
 
     date_formats = [
@@ -276,29 +322,35 @@ def normalize_post_date(timestamp, scraped_at):
     for fmt in date_formats:
 
         try:
-
             dt = datetime.strptime(
                 raw,
                 fmt,
             )
 
-            return dt.strftime("%Y-%m-%d")
+            return dt.strftime(
+                "%Y-%m-%d"
+            )
 
         except ValueError:
-
             pass
 
     # --------------------------------------------------------
-    # Relative timestamp
+    # RELATIVE TIMESTAMP
     # --------------------------------------------------------
 
     scraped_dt = parse_scraped_at(
         scraped_at
     )
 
+    reference = (
+        scraped_dt
+        if scraped_dt
+        else fallback_reference
+    )
+
     relative_dt = parse_relative_timestamp(
         raw,
-        scraped_dt,
+        reference,
     )
 
     if relative_dt:
@@ -308,7 +360,7 @@ def normalize_post_date(timestamp, scraped_at):
         )
 
     # --------------------------------------------------------
-    # FINAL FALLBACK
+    # FALLBACK
     # --------------------------------------------------------
 
     if scraped_dt:
@@ -317,11 +369,13 @@ def normalize_post_date(timestamp, scraped_at):
             "%Y-%m-%d"
         )
 
-    return raw
+    return fallback_reference.strftime(
+        "%Y-%m-%d"
+    )
 
 
 # ============================================================
-# GOOGLE SHEET
+# GOOGLE SHEETS
 # ============================================================
 
 def get_sheet():
@@ -352,7 +406,7 @@ def get_sheet():
 
 
 # ============================================================
-# EXPORT
+# MAIN EXPORT
 # ============================================================
 
 def main():
@@ -360,6 +414,16 @@ def main():
     print("=" * 70)
     print("GENERATING PUBLIC DASHBOARD DATA")
     print("=" * 70)
+
+    # Current run time in IST.
+    fallback_reference = datetime.now(
+        IST
+    )
+
+    print(
+        f"Export reference time: "
+        f"{fallback_reference.strftime('%Y-%m-%d %H:%M:%S %Z')}"
+    )
 
     sheet = get_sheet()
 
@@ -383,9 +447,10 @@ def main():
 
     rows = []
 
-    converted_relative = 0
+    blank_authors = 0
+    relative_dates = 0
 
-    skipped = 0
+    examples = []
 
     # --------------------------------------------------------
     # PROCESS ROWS
@@ -397,10 +462,12 @@ def main():
 
         if len(row) < len(headers):
 
-            row += [
-                ""
-            ] * (
-                len(headers) - len(row)
+            row += (
+                [""] *
+                (
+                    len(headers)
+                    - len(row)
+                )
             )
 
         record = {
@@ -418,12 +485,12 @@ def main():
 
         if not author:
 
-            skipped += 1
+            blank_authors += 1
 
             continue
 
         # ----------------------------------------------------
-        # POST DATE
+        # DATE
         # ----------------------------------------------------
 
         timestamp = clean(
@@ -434,22 +501,35 @@ def main():
             record.get("Scraped At")
         )
 
-        original_date = normalize_post_date(
+        post_date = normalize_post_date(
             timestamp,
             scraped_at,
+            fallback_reference,
         )
 
-        if (
-            timestamp
-            and re.match(
-                r"^\d+\s*[hmd]|^\d+\s*weeks?",
-                timestamp.lower(),
-            )
+        record["Post Date"] = post_date
+
+        # ----------------------------------------------------
+        # LOG RELATIVE VALUES
+        # ----------------------------------------------------
+
+        if re.match(
+            r"^\d+\s*(h|m|d)$",
+            timestamp.lower(),
         ):
 
-            converted_relative += 1
+            relative_dates += 1
 
-        record["Post Date"] = original_date
+            if len(examples) < 15:
+
+                examples.append(
+                    (
+                        author,
+                        timestamp,
+                        scraped_at,
+                        post_date,
+                    )
+                )
 
         # ----------------------------------------------------
         # REMOVE SECRET-LIKE FIELDS
@@ -472,22 +552,26 @@ def main():
                 None,
             )
 
-        rows.append(record)
+        rows.append(
+            record
+        )
 
     # --------------------------------------------------------
     # OUTPUT
     # --------------------------------------------------------
 
     payload = {
-        "generated_at": datetime.now(
-            timezone.utc
-        ).isoformat(),
+        "generated_at":
+            fallback_reference.isoformat(),
 
-        "sheet": SHEET_NAME,
+        "sheet":
+            SHEET_NAME,
 
-        "count": len(rows),
+        "count":
+            len(rows),
 
-        "rows": rows,
+        "rows":
+            rows,
     }
 
     OUTPUT_FILE.parent.mkdir(
@@ -517,15 +601,37 @@ def main():
     )
 
     print(
-        f"Skipped blank authors    : {skipped}"
+        f"Skipped blank authors    : {blank_authors}"
     )
 
     print(
-        f"Relative dates converted : {converted_relative}"
+        f"Relative dates converted : {relative_dates}"
     )
 
+    if examples:
+
+        print("")
+        print(
+            "RELATIVE DATE EXAMPLES:"
+        )
+
+        for (
+            author,
+            timestamp,
+            scraped_at,
+            post_date,
+        ) in examples:
+
+            print(
+                f"{author} | "
+                f"{timestamp} | "
+                f"{scraped_at} -> "
+                f"{post_date}"
+            )
+
+    print("")
     print(
-        f"Output file              : {OUTPUT_FILE}"
+        f"Output file: {OUTPUT_FILE}"
     )
 
     print("=" * 70)
@@ -535,10 +641,5 @@ def main():
     print("=" * 70)
 
 
-# ============================================================
-# ENTRY POINT
-# ============================================================
-
 if __name__ == "__main__":
-
     main()
