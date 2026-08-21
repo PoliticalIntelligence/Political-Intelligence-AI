@@ -18,7 +18,8 @@ SPREADSHEET_ID = os.getenv(
     "1grlbuXqu84eBwEEiKvKUuVjnET9zA76ESa1G5xcvMNI",
 )
 
-# This is the TAB inside "Political Intelligence Database"
+# Worksheet/tab inside:
+# Political Intelligence Database
 SHEET_NAME = os.getenv(
     "AI_ANALYSIS_SHEET",
     "AI Analysis",
@@ -40,7 +41,7 @@ IST = ZoneInfo("Asia/Kolkata")
 
 
 # ============================================================
-# BASIC HELPER
+# HELPERS
 # ============================================================
 
 def clean(value):
@@ -51,30 +52,25 @@ def clean(value):
 
 
 # ============================================================
-# PARSE SCRAPED AT
+# PARSE AI PROCESSED AT (COLUMN Z)
 # ============================================================
 
-def parse_scraped_at(value):
+def parse_processed_at(value):
+    """
+    Column Z = AI Processed At
+
+    Example:
+        2026-08-21 13:42:18
+
+    This is used as the reference date for
+    relative Facebook timestamps.
+    """
+
     raw = clean(value)
 
     if not raw:
         return None
 
-    # ISO timestamp
-    try:
-        dt = datetime.fromisoformat(
-            raw.replace("Z", "+00:00")
-        )
-
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=IST)
-
-        return dt.astimezone(IST)
-
-    except ValueError:
-        pass
-
-    # Other possible formats
     formats = [
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%d %H:%M",
@@ -83,7 +79,9 @@ def parse_scraped_at(value):
     ]
 
     for fmt in formats:
+
         try:
+
             dt = datetime.strptime(
                 raw,
                 fmt,
@@ -96,7 +94,27 @@ def parse_scraped_at(value):
         except ValueError:
             pass
 
-    return None
+    # ISO fallback
+    try:
+
+        dt = datetime.fromisoformat(
+            raw.replace(
+                "Z",
+                "+00:00"
+            )
+        )
+
+        if dt.tzinfo is None:
+
+            dt = dt.replace(
+                tzinfo=IST
+            )
+
+        return dt.astimezone(IST)
+
+    except ValueError:
+
+        return None
 
 
 # ============================================================
@@ -106,55 +124,138 @@ def parse_scraped_at(value):
 MONTHS = {
     "january": 1,
     "jan": 1,
+
     "february": 2,
     "feb": 2,
+
     "march": 3,
     "mar": 3,
+
     "april": 4,
     "apr": 4,
+
     "may": 5,
+
     "june": 6,
     "jun": 6,
+
     "july": 7,
     "jul": 7,
+
     "august": 8,
     "aug": 8,
+
     "september": 9,
     "sep": 9,
     "sept": 9,
+
     "october": 10,
     "oct": 10,
+
     "november": 11,
     "nov": 11,
+
     "december": 12,
     "dec": 12,
 }
 
 
 # ============================================================
-# DATE WITHOUT YEAR
+# INFER YEAR FOR DAY + MONTH
 # ============================================================
 
-def parse_day_month_without_year(
-    value,
+def infer_year(
+    day,
+    month,
     reference_date,
 ):
     """
-    Handles:
+    Example:
+
+    Reference = 21 Aug 2026
+    5 August  -> 5 Aug 2026
+
+    Reference = 10 Jan 2026
+    20 December -> 20 Dec 2025
+    """
+
+    candidates = []
+
+    for year in (
+        reference_date.year - 1,
+        reference_date.year,
+        reference_date.year + 1,
+    ):
+
+        try:
+
+            candidate = datetime(
+                year,
+                month,
+                day,
+                tzinfo=IST,
+            )
+
+            candidates.append(
+                candidate
+            )
+
+        except ValueError:
+
+            continue
+
+    if not candidates:
+
+        return None
+
+    # Prefer latest date not after
+    # processing date.
+    past = [
+        dt
+        for dt in candidates
+        if dt.date() <= reference_date.date()
+    ]
+
+    if past:
+
+        return max(past)
+
+    return min(
+        candidates,
+        key=lambda dt: abs(
+            (
+                dt - reference_date
+            ).total_seconds()
+        ),
+    )
+
+
+# ============================================================
+# PARSE DAY + MONTH WITHOUT YEAR
+# ============================================================
+
+def parse_day_month(
+    timestamp,
+    reference_date,
+):
+    """
+    Supports:
+
         5 August
         5 Aug
         August 5
         Aug 5
-        June 20
-        June 20 at 8:35 PM
+        5 August at 10:20
+        August 5 at 8:35 PM
     """
 
-    raw = clean(value)
+    raw = clean(timestamp)
 
     if not raw:
+
         return None
 
-    # Remove time portion
+    # Remove "at TIME"
     raw = re.split(
         r"\s+at\s+",
         raw,
@@ -162,7 +263,10 @@ def parse_day_month_without_year(
     )[0].strip()
 
     # Remove commas
-    raw = raw.replace(",", " ")
+    raw = raw.replace(
+        ",",
+        " "
+    )
 
     # Normalize spaces
     raw = re.sub(
@@ -237,78 +341,15 @@ def parse_day_month_without_year(
 
 
 # ============================================================
-# INFER YEAR
-# ============================================================
-
-def infer_year(
-    day,
-    month,
-    reference_date,
-):
-    """
-    Example:
-
-    Reference: 20 August 2026
-    5 August  -> 5 August 2026
-
-    Reference: 10 January 2026
-    20 December -> 20 December 2025
-    """
-
-    candidates = []
-
-    for year in (
-        reference_date.year - 1,
-        reference_date.year,
-        reference_date.year + 1,
-    ):
-
-        try:
-            candidate = datetime(
-                year,
-                month,
-                day,
-                tzinfo=IST,
-            )
-
-            candidates.append(candidate)
-
-        except ValueError:
-            continue
-
-    if not candidates:
-        return None
-
-    # Prefer the latest date that is not
-    # after the reference date.
-    past_dates = [
-        dt
-        for dt in candidates
-        if dt.date() <= reference_date.date()
-    ]
-
-    if past_dates:
-        return max(past_dates)
-
-    # Fallback: closest date
-    return min(
-        candidates,
-        key=lambda dt: abs(
-            (dt - reference_date).total_seconds()
-        ),
-    )
-
-
-# ============================================================
-# RELATIVE FACEBOOK TIMESTAMP
+# PARSE RELATIVE FACEBOOK TIMESTAMP
 # ============================================================
 
 def parse_relative_timestamp(
-    value,
+    timestamp,
     reference_date,
 ):
     """
-    Handles:
+    Supports:
 
         4h
         30m
@@ -320,9 +361,10 @@ def parse_relative_timestamp(
         today
     """
 
-    raw = clean(value).lower()
+    raw = clean(timestamp).lower()
 
     if not raw:
+
         return None
 
     raw = raw.replace(
@@ -443,8 +485,9 @@ def parse_relative_timestamp(
 
     if raw == "yesterday":
 
-        return reference_date - timedelta(
-            days=1
+        return (
+            reference_date
+            - timedelta(days=1)
         )
 
     return None
@@ -456,42 +499,43 @@ def parse_relative_timestamp(
 
 def normalize_post_date(
     timestamp,
-    scraped_at,
+    processed_at,
 ):
     """
+    Uses ONLY:
+
+        Column D = Timestamp
+        Column Z = AI Processed At
+
     Priority:
 
-    1. Full calendar date with year
-    2. Day + month without year
-    3. Relative timestamp + Scraped At
-    4. Blank if date genuinely cannot be determined
-
-    IMPORTANT:
-    We NEVER replace an unknown historical date
-    with today's date.
+        1. Full date + year
+        2. Day + month
+        3. Relative timestamp using Column Z
+        4. Blank if genuinely unknown
     """
 
     raw = clean(timestamp)
 
     if not raw:
+
         return ""
 
-    scraped_dt = parse_scraped_at(
-        scraped_at
+    # --------------------------------------------------------
+    # COLUMN Z REFERENCE DATE
+    # --------------------------------------------------------
+
+    reference_date = parse_processed_at(
+        processed_at
     )
 
-    # Use scraped time as the reference.
-    # If unavailable, use current IST time only
-    # for relative-date interpretation.
-    reference_date = (
-        scraped_dt
-        if scraped_dt
-        else datetime.now(IST)
-    )
+    if reference_date is None:
 
-    # ========================================================
+        return ""
+
+    # --------------------------------------------------------
     # 1. ISO DATE
-    # ========================================================
+    # --------------------------------------------------------
 
     if (
         len(raw) >= 10
@@ -511,21 +555,24 @@ def normalize_post_date(
             )
 
         except ValueError:
+
             pass
 
-    # ========================================================
-    # 2. FULL DATE WITH YEAR
-    # ========================================================
+    # --------------------------------------------------------
+    # REMOVE FACEBOOK "AT TIME"
+    # --------------------------------------------------------
 
-    # Remove Facebook time part:
-    # "19 July at 19:03" -> "19 July"
     date_only = re.split(
         r"\s+at\s+",
         raw,
         flags=re.IGNORECASE,
     )[0].strip()
 
-    full_date_formats = [
+    # --------------------------------------------------------
+    # 2. FULL DATE WITH YEAR
+    # --------------------------------------------------------
+
+    formats = [
         "%d %B %Y",
         "%d %b %Y",
         "%d/%m/%Y",
@@ -535,7 +582,7 @@ def normalize_post_date(
         "%b %d, %Y",
     ]
 
-    for fmt in full_date_formats:
+    for fmt in formats:
 
         try:
 
@@ -549,13 +596,14 @@ def normalize_post_date(
             )
 
         except ValueError:
+
             pass
 
-    # ========================================================
+    # --------------------------------------------------------
     # 3. DAY + MONTH WITHOUT YEAR
-    # ========================================================
+    # --------------------------------------------------------
 
-    day_month = parse_day_month_without_year(
+    day_month = parse_day_month(
         raw,
         reference_date,
     )
@@ -566,24 +614,24 @@ def normalize_post_date(
             "%Y-%m-%d"
         )
 
-    # ========================================================
-    # 4. RELATIVE TIMESTAMP
-    # ========================================================
+    # --------------------------------------------------------
+    # 4. RELATIVE DATE
+    # --------------------------------------------------------
 
-    relative_dt = parse_relative_timestamp(
+    relative = parse_relative_timestamp(
         raw,
         reference_date,
     )
 
-    if relative_dt:
+    if relative:
 
-        return relative_dt.strftime(
+        return relative.strftime(
             "%Y-%m-%d"
         )
 
-    # ========================================================
-    # 5. UNKNOWN -> BLANK
-    # ========================================================
+    # --------------------------------------------------------
+    # UNKNOWN
+    # --------------------------------------------------------
 
     return ""
 
@@ -615,11 +663,11 @@ def get_sheet():
     )
 
     print(
-        f"Spreadsheet: {spreadsheet.title}"
+        f"Spreadsheet : {spreadsheet.title}"
     )
 
     print(
-        f"Worksheet: {SHEET_NAME}"
+        f"Worksheet   : {SHEET_NAME}"
     )
 
     return spreadsheet.worksheet(
@@ -634,7 +682,9 @@ def get_sheet():
 def main():
 
     print("=" * 70)
-    print("GENERATING PUBLIC DASHBOARD DATA")
+    print(
+        "GENERATING PUBLIC DASHBOARD DATA"
+    )
     print("=" * 70)
 
     sheet = get_sheet()
@@ -644,7 +694,7 @@ def main():
     if not values:
 
         raise RuntimeError(
-            f'Google Sheet "{SHEET_NAME}" is empty.'
+            f'Worksheet "{SHEET_NAME}" is empty.'
         )
 
     headers = values[0]
@@ -657,23 +707,80 @@ def main():
         f"Rows found    : {len(values) - 1}"
     )
 
+    # --------------------------------------------------------
+    # VERIFY REQUIRED COLUMNS
+    # --------------------------------------------------------
+
+    timestamp_index = None
+    processed_index = None
+    author_index = None
+
+    for i, header in enumerate(headers):
+
+        header_clean = clean(
+            header
+        ).lower()
+
+        if header_clean == "timestamp":
+
+            timestamp_index = i
+
+        elif header_clean == "ai processed at":
+
+            processed_index = i
+
+        elif header_clean == "author":
+
+            author_index = i
+
+    if timestamp_index is None:
+
+        raise RuntimeError(
+            'Column "Timestamp" was not found.'
+        )
+
+    if processed_index is None:
+
+        raise RuntimeError(
+            'Column "AI Processed At" was not found.'
+        )
+
+    if author_index is None:
+
+        raise RuntimeError(
+            'Column "Author" was not found.'
+        )
+
+    print(
+        f"Timestamp column : {timestamp_index + 1}"
+    )
+
+    print(
+        f"Processed column : {processed_index + 1}"
+    )
+
+    print(
+        f"Author column    : {author_index + 1}"
+    )
+
     rows = []
 
     blank_authors = 0
     valid_dates = 0
     blank_dates = 0
 
-    relative_dates = 0
-    day_month_dates = 0
+    relative_count = 0
+    day_month_count = 0
 
     # ========================================================
-    # PROCESS ROWS
+    # PROCESS EVERY AI ANALYSIS ROW
     # ========================================================
 
     for raw_row in values[1:]:
 
         row = list(raw_row)
 
+        # Pad short rows
         if len(row) < len(headers):
 
             row += (
@@ -684,6 +791,7 @@ def main():
                 )
             )
 
+        # Build record
         record = {
             headers[i]: row[i]
             for i in range(len(headers))
@@ -694,7 +802,7 @@ def main():
         # ----------------------------------------------------
 
         author = clean(
-            record.get("Author")
+            row[author_index]
         )
 
         if not author:
@@ -704,27 +812,32 @@ def main():
             continue
 
         # ----------------------------------------------------
-        # TIMESTAMP
+        # D = TIMESTAMP
+        # Z = AI PROCESSED AT
         # ----------------------------------------------------
 
         timestamp = clean(
-            record.get("Timestamp")
+            row[timestamp_index]
         )
 
-        scraped_at = clean(
-            record.get("Scraped At")
+        processed_at = clean(
+            row[processed_index]
         )
 
         # ----------------------------------------------------
-        # DATE
+        # CALCULATE POST DATE
         # ----------------------------------------------------
 
         post_date = normalize_post_date(
             timestamp,
-            scraped_at,
+            processed_at,
         )
 
         record["Post Date"] = post_date
+
+        # ----------------------------------------------------
+        # COUNTERS
+        # ----------------------------------------------------
 
         if post_date:
 
@@ -734,37 +847,29 @@ def main():
 
             blank_dates += 1
 
-        # ----------------------------------------------------
-        # DEBUG COUNTS
-        # ----------------------------------------------------
-
-        lower_timestamp = (
-            timestamp.lower()
-        )
-
         if re.match(
             r"^\d+\s*(h|m|d)$",
-            lower_timestamp,
+            timestamp.lower(),
         ):
 
-            relative_dates += 1
+            relative_count += 1
 
-        elif parse_day_month_without_year(
+        elif parse_day_month(
             timestamp,
-            parse_scraped_at(
-                scraped_at
+            parse_processed_at(
+                processed_at
             )
             or datetime.now(IST),
         ):
 
-            day_month_dates += 1
+            day_month_count += 1
 
         rows.append(
             record
         )
 
     # ========================================================
-    # REMOVE SECRET-LIKE FIELDS
+    # REMOVE SENSITIVE FIELDS
     # ========================================================
 
     secret_fields = {
@@ -787,7 +892,7 @@ def main():
             )
 
     # ========================================================
-    # CREATE JSON
+    # CREATE DASHBOARD JSON
     # ========================================================
 
     payload = {
@@ -824,12 +929,14 @@ def main():
     )
 
     # ========================================================
-    # LOG
+    # SUMMARY
     # ========================================================
 
     print("")
     print("=" * 70)
-    print("EXPORT SUMMARY")
+    print(
+        "DASHBOARD EXPORT SUMMARY"
+    )
     print("=" * 70)
 
     print(
@@ -845,11 +952,11 @@ def main():
     )
 
     print(
-        f"Relative dates    : {relative_dates}"
+        f"Relative dates    : {relative_count}"
     )
 
     print(
-        f"Day/month dates   : {day_month_dates}"
+        f"Day/month dates   : {day_month_count}"
     )
 
     print(
