@@ -1,19 +1,10 @@
-from playwright.sync_api import sync_playwright
+import os
+import sys
 
-from core.config import Config
+from playwright.sync_api import sync_playwright
 
 
 class BrowserManager:
-    """
-    Manages the Playwright browser lifecycle.
-
-    Responsibilities
-    ----------------
-    • Start Playwright
-    • Launch Chromium
-    • Create browser contexts
-    • Close everything safely
-    """
 
     def __init__(self, logger):
 
@@ -21,145 +12,218 @@ class BrowserManager:
 
         self.playwright = None
         self.browser = None
+        self.context = None
+        self.page = None
 
-    # ----------------------------------------------------
-    # Start Browser
-    # ----------------------------------------------------
+    # ------------------------------------------------------
+    # HEADLESS DETECTION
+    # ------------------------------------------------------
+
+    def is_headless_environment(self):
+
+        # Explicit override
+        env_value = os.getenv(
+            "PLAYWRIGHT_HEADLESS"
+        )
+
+        if env_value is not None:
+
+            return env_value.lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            )
+
+        # GitHub Actions
+        if os.getenv(
+            "GITHUB_ACTIONS"
+        ) == "true":
+
+            return True
+
+        # Linux without DISPLAY
+        if sys.platform.startswith(
+            "linux"
+        ) and not os.getenv(
+            "DISPLAY"
+        ):
+
+            return True
+
+        # Local Windows / normal desktop
+        return False
+
+    # ------------------------------------------------------
+    # START PLAYWRIGHT
+    # ------------------------------------------------------
 
     def start(self):
 
-        self.logger.log("=" * 70)
-        self.logger.log("STARTING PLAYWRIGHT")
-        self.logger.log("=" * 70)
-
-        self.logger.log("Starting Playwright...")
-
-        self.playwright = sync_playwright().start()
-
-        self.logger.log("Launching Chromium...")
-
-        self.browser = self.playwright.chromium.launch(
-
-            headless=Config.HEADLESS,
-
-            slow_mo=Config.SLOW_MO,
-
-            args=[
-
-                "--disable-blink-features=AutomationControlled",
-
-                "--disable-dev-shm-usage",
-
-                "--disable-gpu",
-
-                "--disable-notifications",
-
-                "--disable-popup-blocking",
-
-                "--disable-infobars",
-
-                "--start-maximized"
-
-            ]
-
+        self.logger.log(
+            "=" * 70
         )
 
-        self.logger.log("Chromium launched successfully.")
+        self.logger.log(
+            "STARTING PLAYWRIGHT"
+        )
 
-    # ----------------------------------------------------
-    # Create Context
-    # ----------------------------------------------------
+        self.logger.log(
+            "=" * 70
+        )
 
-    def create_context(self):
+        self.logger.log(
+            "Starting Playwright..."
+        )
 
-        self.logger.log("Creating browser context...")
+        self.playwright = (
+            sync_playwright().start()
+        )
 
-        context = self.browser.new_context(
+        headless = (
+            self.is_headless_environment()
+        )
 
-            viewport=Config.VIEWPORT,
+        self.logger.log(
+            f"Browser mode : "
+            f"{'HEADLESS' if headless else 'HEADED'}"
+        )
 
-            locale="en-US",
+        self.logger.log(
+            "Launching Chromium..."
+        )
 
-            timezone_id="Asia/Kolkata",
+        self.browser = (
+            self.playwright.chromium.launch(
+                headless=headless,
+                args=[
+                    "--no-sandbox",
+                    "--disable-dev-shm-usage",
+                    "--disable-gpu",
+                    "--disable-notifications",
+                    "--disable-popup-blocking",
+                    "--disable-infobars",
+                    "--disable-blink-features=AutomationControlled",
+                ],
+            )
+        )
 
-            java_script_enabled=True,
+        self.logger.log(
+            "Chromium launched successfully."
+        )
 
-            ignore_https_errors=True,
+        return self.browser
 
-            bypass_csp=True,
+    # ------------------------------------------------------
+    # CONTEXT
+    # ------------------------------------------------------
 
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/138.0.0.0 Safari/537.36"
+    def new_context(self):
+
+        if not self.browser:
+
+            raise RuntimeError(
+                "Browser has not been started."
             )
 
+        self.logger.log(
+            "Creating browser context..."
         )
 
-        context.set_default_timeout(
-            Config.DEFAULT_TIMEOUT
+        self.context = (
+            self.browser.new_context(
+                viewport={
+                    "width": 1440,
+                    "height": 900,
+                },
+
+                locale="en-IN",
+
+                timezone_id="Asia/Kolkata",
+
+                user_agent=(
+                    "Mozilla/5.0 "
+                    "(Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) "
+                    "Chrome/138.0.0.0 "
+                    "Safari/537.36"
+                ),
+            )
         )
 
-        context.set_default_navigation_timeout(
-            Config.DEFAULT_TIMEOUT
+        self.logger.log(
+            "Browser context created."
         )
 
-        # Reduce automation fingerprints
+        return self.context
 
-        context.add_init_script(
-            """
-            Object.defineProperty(navigator, 'webdriver', {
-                get: () => undefined
-            });
+    # ------------------------------------------------------
+    # PAGE
+    # ------------------------------------------------------
 
-            Object.defineProperty(navigator, 'platform', {
-                get: () => 'Win32'
-            });
+    def new_page(self):
 
-            Object.defineProperty(navigator, 'language', {
-                get: () => 'en-US'
-            });
+        if not self.context:
 
-            Object.defineProperty(navigator, 'languages', {
-                get: () => ['en-US','en']
-            });
-            """
+            self.new_context()
+
+        self.page = (
+            self.context.new_page()
         )
 
-        self.logger.log("Browser context created.")
+        return self.page
 
-        return context
-
-    # ----------------------------------------------------
-    # Close Browser
-    # ----------------------------------------------------
+    # ------------------------------------------------------
+    # CLOSE
+    # ------------------------------------------------------
 
     def close(self):
 
-        self.logger.log("Closing browser...")
-
         try:
+
+            if self.page:
+
+                try:
+                    self.page.close()
+                except Exception:
+                    pass
+
+                self.page = None
+
+            if self.context:
+
+                try:
+                    self.context.close()
+                except Exception:
+                    pass
+
+                self.context = None
 
             if self.browser:
 
-                self.browser.close()
+                try:
+                    self.browser.close()
+                except Exception:
+                    pass
 
-                self.logger.log("Chromium closed.")
+                self.browser = None
 
-        except Exception as e:
-
-            self.logger.log(f"Error closing browser: {e}")
-
-        try:
+        finally:
 
             if self.playwright:
 
-                self.playwright.stop()
+                try:
+                    self.playwright.stop()
+                except Exception:
+                    pass
 
-                self.logger.log("Playwright stopped.")
+                self.playwright = None
 
-        except Exception as e:
+            self.logger.log(
+                "Playwright stopped."
+            )
 
-            self.logger.log(f"Error stopping Playwright: {e}")
-
-        self.logger.log("Browser closed successfully.")
+            self.logger.log(
+                "Browser closed successfully."
+            )
